@@ -1,0 +1,23 @@
+.PHONY: build install run test help clean
+
+build: 
+	pyinstaller --onefile --name $(NAME) $(MAIN)
+install:
+	pip install -r requirements.txt
+run:
+	python main.py
+test:
+	python teste.py
+execute:
+	./dist/$(NAME).exe
+help:
+	@echo "Comandos disponíveis:"
+	@echo "  make build   - Prepara o ambiente (instala dependências)"
+	@echo "  make install - Instala as dependências"
+	@echo "  make run     - Executa o programa principal"
+	@echo "  make test    - Executa os testes"
+	@echo "  make help    - Mostra esta mensagem"
+	@echo "  make clean   - Remove arquivos gerados"
+
+clean:
+	Remove-Item -Recurse -Force build,dist,*.spec -ErrorAction SilentlyContinue
