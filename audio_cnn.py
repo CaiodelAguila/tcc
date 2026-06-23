@@ -1,16 +1,39 @@
 import torch as t
 import torch.nn as nn
-from downblock import down_block
+
+class downblock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, padding=1):
+        super().__init__()
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, stride, padding)
+        self.bn = nn.BatchNorm1d(out_channels)
+        self.relu = nn.ReLU()
+        
+        self.shortcut = nn.Sequential()
+        if in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=stride, padding=0),
+                nn.BatchNorm1d(out_channels)
+            )
+
+    def forward(self, x):
+        res = self.shortcut(x)
+        out = self.bn(self.conv(x))
+
+        out+=res
+        out = self.relu(out)
+        return out
+
 
 
 class AudioNet1D(nn.Module):
-    def __init__(self,num_classes=10):
+    def __init__(self,num_classes=35):
         super().__init__()
-        self.down1 = down_block(1, 32)
-        self.down2 = down_block(32, 64)
-        self.down3 = down_block(64, 128)
-        self.down4 = down_block(128, 256)
-
+        self.down1 = downblock(1, 32)
+        self.down2 = downblock(32, 64)
+        self.down3 = downblock(64, 128)
+        self.down4 = downblock(128, 256)
+        
+        self.pool = nn.AdaptiveAvgPool1d(32)
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(256*32, num_classes)
 
@@ -25,6 +48,7 @@ class AudioNet1D(nn.Module):
         x = self.down3(x)
         x = self.down4(x)
 
+        x = self.pool(x)
         x = self.flatten(x)
         logits = self.fc(x)
 
