@@ -1,13 +1,13 @@
 .PHONY: build install run test help clean
 
-build: 
-	pyinstaller --onefile --name $(NAME) $(MAIN)
+requirements:
+	pip freeze > requirements.txt
 install:
 	pip install -r requirements.txt
 run:
 	python main.py
 test:
-	python teste.py
+	python tester.py
 execute:
 	./dist/$(NAME).exe
 help:
