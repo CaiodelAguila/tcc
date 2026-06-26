@@ -118,7 +118,6 @@ for epoch in range(num_age):
     acuracia = 100 * acertos / total
     acc_teste.append(acuracia)
 
-    print(f"Época [{epoch+1}/{num_age}], Erro médio: {erro_medio:.4f}, Acurácia no teste: {acuracia:.2f}%")
 
 plt.figure(figsize=(12, 5))
 
@@ -130,7 +129,6 @@ plt.ylabel('Loss (CrossEntropy)')
 plt.grid(True)
 plt.legend()
 
-# Gráfico 2: Acurácia
 plt.subplot(1, 2, 2)
 plt.plot(range(1, num_age + 1), acc_teste, marker='o', color='blue', label='Acurácia de Teste')
 plt.title('Evolução da Acurácia')
