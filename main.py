@@ -6,8 +6,10 @@ import audio_cnn as ac
 import numpy as np
 import librosa
 import os
+import time
 from torch.utils.data import Dataset, DataLoader
 import audio_processing as ap
+from tqdm import tqdm
 
 class SpeechCommandsDataset(Dataset):
     def __init__(self, lista_caminhos,lista_labels,label_idx):
@@ -102,30 +104,43 @@ classes_unicas = sorted(list(set(labels_treino)))
 
 label_to_idx = {label: idx for idx, label in enumerate(classes_unicas)}
 #Escolha do dataset para treino e teste, utilizando a versão 2 do dataset, que aplica a transformada de Morlet e compressão
-#dataset_treino = SpeechCommandsDataset(caminhos_treino, labels_treino, label_to_idx)
-dataset_treino = SpeechCommandsDatasetV2(caminhos_treino, labels_treino, label_to_idx)
-dataloader_treino = DataLoader(dataset_treino, batch_size=128, shuffle=True)
+#dataset_treino = SpeechCommandsDataset(caminhos_treino, labels_treino, label_to_idx) #V1
+dataset_treino = SpeechCommandsDatasetV2(caminhos_treino, labels_treino, label_to_idx) #V2
+dataloader_treino = DataLoader(dataset_treino, batch_size=128, shuffle=True,num_workers=4)
 
-#dataset_teste = SpeechCommandsDataset(caminho_testing, labels_testing, label_to_idx)
-dataset_teste = SpeechCommandsDatasetV2(caminho_testing, labels_testing, label_to_idx)
-dataloader_teste = DataLoader(dataset_teste, batch_size=128, shuffle=False)
+#dataset_teste = SpeechCommandsDataset(caminho_testing, labels_testing, label_to_idx) #V1
+dataset_teste = SpeechCommandsDatasetV2(caminho_testing, labels_testing, label_to_idx) #V2
+dataloader_teste = DataLoader(dataset_teste, batch_size=128, shuffle=False,num_workers=4)
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 #Escolha da audionet para o modelo
-#modelo = ac.AudioNet1D(num_classes=35)
-modelo = ac.AudioNet1DV2(num_classes=35)
+#modelo = ac.AudioNet1D(num_classes=35)  #V1
+modelo = ac.AudioNet1DV2(num_classes=35) #V2
 modelo = modelo.to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = t.optim.Adam(modelo.parameters(), lr=0.0001, weight_decay=0.0001)
+#optimizer = t.optim.Adam(modelo.parameters(), lr=0.0001, weight_decay=0.0001)
+optimizer = t.optim.Adam(modelo.parameters(), lr=0.001)
 
-num_age = 3
+#checkpoint_path = "checkpoint_audionet.pth" #V1
+checkpoint_path = "checkpoint_audionetv2.pth" #V2
+start=0
+if(os.path.exists(checkpoint_path)):
+    checkpoint = t.load(checkpoint_path)
+    modelo.load_state_dict(checkpoint['model_state'])
+    optimizer.load_state_dict(checkpoint['optim_state'])
+    start = checkpoint['epoch']
+
+num_age = 2
 erro_treino = []
 acc_teste = []
-for epoch in range(num_age):
+
+start_time = time.perf_counter()
+for epoch in range(start,num_age):
     modelo.train()
     running_loss = 0.0
+    print(f"Epoca : {epoch+1}")
 
-    for lote_idx, (audios, labels) in enumerate(dataloader_treino):
+    for lote_idx, (audios, labels) in enumerate(tqdm(dataloader_treino,desc="Training")):
         audios = audios.to(device)
         labels = labels.to(device)
         optimizer.zero_grad()
@@ -142,7 +157,7 @@ for epoch in range(num_age):
     acertos = 0
     total = 0
     with t.no_grad():
-        for audios, labels in dataloader_teste:
+        for audios, labels in tqdm(dataloader_teste):
             audios = audios.to(device)
             labels = labels.to(device)
 
@@ -153,8 +168,14 @@ for epoch in range(num_age):
             acertos += (predicted == labels).sum().item()
     acuracia = 100 * acertos / total
     acc_teste.append(acuracia)
-    print(f'Época [{epoch + 1}/{num_age}], Loss de Treino: {erro_medio:.4f}, Acurácia de Teste: {acuracia:.2f}%')
+    checkpoint ={'epoch' : epoch,'model_state' : modelo.state_dict(),'optim_state' : optimizer.state_dict()}
+    
+    #t.save(checkpoint,"checkpoint_audionet.pth") #V1
+    t.save(checkpoint,"checkpoint_audionetv2.pth") #V2
+    print("[CHECKPOINT]")
+end_time=time.perf_counter()
 
+print(f"Tempo de treinamento: {end_time-start_time:.4f}")
 
 plt.figure(figsize=(12, 5))
 

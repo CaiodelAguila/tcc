@@ -1,4 +1,5 @@
 import torch as t
+import numpy as np
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 print(f"Dispositivo detectado para o treino: {device}")
 if device.type == "cuda":

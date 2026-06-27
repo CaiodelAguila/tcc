@@ -1,5 +1,6 @@
 import numpy as np
 import librosa as lb
+import matplotlib as plt
 
 def carregar_audio(caminho_arquivo, sample_rate=16000):
     y, sr = lb.load(caminho_arquivo, sr=sample_rate)
@@ -8,13 +9,13 @@ def carregar_audio(caminho_arquivo, sample_rate=16000):
     return y
 
 def morlet(mu, sigma,freq, t): #t = np.linspace(0,250*dt,step=dt) dt do audio ste
+    omega = 2 * np.pi * freq
     a = 1/(2*sigma**2)
-    b = np.exp(-sigma**2/(4*a))
-    c = np.sqrt(1/(np.sqrt(np.pi/2/a)*(1/2 + b**2 + np.exp(-sigma**2/a) - 2*b*np.exp(-sigma**2/8/a))))
+    b = np.exp(-omega**2/(4*a))
+    c = np.sqrt(1/(np.sqrt(np.pi/2/a)*(1/2 + b**2 + np.exp(-omega**2/a) - 2*b*np.exp(-omega**2/8/a))))
 
-    real = c * np.exp(-a * (t - mu)**2) * np.cos(freq * (t - mu))
-    imag = c * np.exp(-a * (t - mu)**2) * np.sin(freq * (t - mu))
-
+    real = c * np.exp(-a * (t - mu)**2) * np.cos(omega * (t - mu))
+    imag = c * np.exp(-a * (t - mu)**2) * np.sin(omega * (t - mu))
     return real, imag
 
 def extract_features(audio,freq_list,sample_rate=16000):
