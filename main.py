@@ -7,6 +7,7 @@ import numpy as np
 import librosa
 import os
 from torch.utils.data import Dataset, DataLoader
+import audio_processing as ap
 
 class SpeechCommandsDataset(Dataset):
     def __init__(self, lista_caminhos,lista_labels,label_idx):
@@ -27,6 +28,35 @@ class SpeechCommandsDataset(Dataset):
         tensor_audio = t.tensor(y, dtype=t.float32)
         label_idx = self.label_idx[label]
         tensor_label = t.tensor(label_idx, dtype=t.long)
+        return tensor_audio, tensor_label
+
+class SpeechCommandsDatasetV2(Dataset):
+    def __init__(self, lista_caminhos,lista_labels,label_idx):
+        self.caminhos = lista_caminhos
+        self.labels = lista_labels
+        self.label_idx = label_idx
+        
+        self.frequencies = np.linspace(20.0, 8000.0 , 64) # Frequências de 0 a 8kHz, com 64 pontos
+        #self.frequencies = np.geomspace(20.0, 8000.0, num=64)  # Frequências de 20Hz a 8kHz, com 64 pontos
+        self.compress = nn.AdaptiveAvgPool1d(256)
+    def __len__(self):
+        return len(self.caminhos)
+
+    def __getitem__(self, idx):
+        caminho = self.caminhos[idx]
+        label = self.labels[idx]
+
+        audio = ap.carregar_audio(caminho, sample_rate=16000)
+
+        features = ap.extract_features(audio, self.frequencies)
+
+        tensor_audio = t.tensor(features, dtype=t.float32)
+        tensor_audio = self.compress(tensor_audio)
+
+        label_idx = self.label_idx[label]
+        tensor_label = t.tensor(label_idx, dtype=t.long)
+
+
         return tensor_audio, tensor_label
 
 caminho_dataset = r"E:\TCC\dataset\SpeechCommands\speech_commands_v0.02"
@@ -71,20 +101,24 @@ print("-"*40)
 classes_unicas = sorted(list(set(labels_treino)))
 
 label_to_idx = {label: idx for idx, label in enumerate(classes_unicas)}
-
-dataset_treino = SpeechCommandsDataset(caminhos_treino, labels_treino, label_to_idx)
+#Escolha do dataset para treino e teste, utilizando a versão 2 do dataset, que aplica a transformada de Morlet e compressão
+#dataset_treino = SpeechCommandsDataset(caminhos_treino, labels_treino, label_to_idx)
+dataset_treino = SpeechCommandsDatasetV2(caminhos_treino, labels_treino, label_to_idx)
 dataloader_treino = DataLoader(dataset_treino, batch_size=128, shuffle=True)
 
-dataset_teste = SpeechCommandsDataset(caminho_testing, labels_testing, label_to_idx)
+#dataset_teste = SpeechCommandsDataset(caminho_testing, labels_testing, label_to_idx)
+dataset_teste = SpeechCommandsDatasetV2(caminho_testing, labels_testing, label_to_idx)
 dataloader_teste = DataLoader(dataset_teste, batch_size=128, shuffle=False)
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
-modelo = ac.AudioNet1D(num_classes=35)
+#Escolha da audionet para o modelo
+#modelo = ac.AudioNet1D(num_classes=35)
+modelo = ac.AudioNet1DV2(num_classes=35)
 modelo = modelo.to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = t.optim.Adam(modelo.parameters(), lr=0.0001, weight_decay=0.0001)
 
-num_age = 10
+num_age = 3
 erro_treino = []
 acc_teste = []
 for epoch in range(num_age):
@@ -95,7 +129,8 @@ for epoch in range(num_age):
         audios = audios.to(device)
         labels = labels.to(device)
         optimizer.zero_grad()
-        outputs = modelo(audios.unsqueeze(1))
+        #outputs = modelo(audios.unsqueeze(1)) #V1
+        outputs = modelo(audios) #V2
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -111,12 +146,14 @@ for epoch in range(num_age):
             audios = audios.to(device)
             labels = labels.to(device)
 
-            outputs = modelo(audios.unsqueeze(1))
+            #outputs = modelo(audios.unsqueeze(1)) #V1
+            outputs = modelo(audios) #V2
             _, predicted = t.max(outputs.data, 1)
             total += labels.size(0)
             acertos += (predicted == labels).sum().item()
     acuracia = 100 * acertos / total
     acc_teste.append(acuracia)
+    print(f'Época [{epoch + 1}/{num_age}], Loss de Treino: {erro_medio:.4f}, Acurácia de Teste: {acuracia:.2f}%')
 
 
 plt.figure(figsize=(12, 5))

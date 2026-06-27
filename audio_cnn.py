@@ -53,3 +53,28 @@ class AudioNet1D(nn.Module):
         logits = self.fc(x)
 
         return logits
+    
+class AudioNet1DV2(nn.Module):
+    def __init__(self,num_classes=35):
+        super().__init__()
+        self.down1 = downblock(64, 32)
+        self.down2 = downblock(32, 64)
+        self.down3 = downblock(64, 128)
+        self.down4 = downblock(128, 256)
+
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(256*16, num_classes)
+
+
+
+    def forward(self, x):
+
+        x = self.down1(x)
+        x = self.down2(x)
+        x = self.down3(x)
+        x = self.down4(x)
+
+        x = self.flatten(x)
+        logits = self.fc(x)
+
+        return logits
