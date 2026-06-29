@@ -1,3 +1,5 @@
 datase
 __pycache__
 README.md
+checkpoint_audionet.pth
+checkpoint_audionetv2.pth
